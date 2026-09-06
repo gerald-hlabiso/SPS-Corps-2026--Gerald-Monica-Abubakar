@@ -1,0 +1,30 @@
+# Core agent framework
+langgraph
+langchain-ollama
+
+# Data validation and schemas
+pydantic
+
+# HTTP client for Ollama
+requests
+
+# Config loading
+pyyaml
+
+# Vector store for semantic policy retrieval
+chromadb
+
+# Data handling
+pandas
+numpy
+scikit-learn
+
+# API layer
+fastapi
+uvicorn
+
+# Observability
+langfuse
+
+# Utilities
+python-dotenv

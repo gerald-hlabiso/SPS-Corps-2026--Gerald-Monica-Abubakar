@@ -1,0 +1,16 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# Mac
+.DS_Store
+
+# Logs and evaluation results
+sps-loan-triage/evaluation/results/
+
+# Raw data files
+sps-loan-triage/data/raw/*.csv
+sps-loan-triage/data/raw/*.json

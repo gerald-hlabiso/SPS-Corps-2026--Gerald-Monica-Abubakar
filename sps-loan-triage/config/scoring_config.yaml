@@ -1,0 +1,46 @@
+# scoring_config.yaml
+# Centralised scoring configuration for the Loan Triage Pipeline.
+# Validated at startup by src/config_loader.py — the pipeline will refuse to run
+# if any value is out of the safe range documented below.
+#
+# To tune thresholds: edit this file and restart the server.  No code changes needed.
+
+# ---------------------------------------------------------------------------
+# Feature Weights
+# All four weights must sum exactly to 1.0.
+# Set a weight to 0.0 to disable a feature without removing it from the code.
+# ---------------------------------------------------------------------------
+weights:
+  credit_score:   0.45   # FICO score contribution (inverted: 850→0 risk, 300→100 risk)
+  dti_ratio:      0.30   # Debt-to-income ratio (0.0–1.0 → 0–100 risk)
+  delinquencies:  0.25   # Recent delinquency count (capped at 5 = max risk)
+  income_to_loan: 0.00   # Loan-to-income ratio — reserved, currently unused
+
+# ---------------------------------------------------------------------------
+# Risk Tier Boundaries  (must be in range 0–100; low_max < moderate_max)
+# Scores ≤ low_max          → Low tier
+# Scores ≤ moderate_max     → Moderate tier
+# Scores > moderate_max     → High tier
+# ---------------------------------------------------------------------------
+tiers:
+  low_max:      22.0
+  moderate_max: 55.0
+
+# ---------------------------------------------------------------------------
+# Escalation and Borderline Thresholds  (must be in range 0–100)
+# escalation:         scores ≤ this → escalate_to_underwriting; above → recommend_decline
+# borderline_margin:  ± band around escalation threshold → triggers LLM reasoning (Path B)
+#   borderline zone:  [escalation - margin, escalation + margin]
+# ---------------------------------------------------------------------------
+thresholds:
+  escalation:        38.0
+  borderline_margin: 10.0
+
+# ---------------------------------------------------------------------------
+# LLM Retry Configuration
+# With Ollama's native structured output enforcement (format param) parse
+# failures are eliminated; only network-level retries are needed.
+# max_retries: 1  →  one retry attempt on Ollama network / timeout errors.
+# ---------------------------------------------------------------------------
+retries:
+  max_retries: 1

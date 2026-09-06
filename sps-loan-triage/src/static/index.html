@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LoanTriage — Decision Support System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:        #080c10;
+      --surface:   #0d1117;
+      --surface2:  #161b22;
+      --border:    #21262d;
+      --accent:    #00d4aa;
+      --accent2:   #0090ff;
+      --danger:    #ff4560;
+      --warn:      #f5a623;
+      --text:      #e6edf3;
+      --muted:     #8b949e;
+      --low:       #00d4aa;
+      --moderate:  #f5a623;
+      --high:      #ff4560;
+      --review:    #a371f7;
+      --font-head: 'Syne', sans-serif;
+      --font-mono: 'IBM Plex Mono', monospace;
+      --font-body: 'Inter', sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0,212,170,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,212,170,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    header {
+      position: relative;
+      z-index: 10;
+      border-bottom: 1px solid var(--border);
+      padding: 0 40px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(8,12,16,0.9);
+      backdrop-filter: blur(12px);
+    }
+
+    .logo {
+      font-family: var(--font-head);
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-mark {
+      width: 28px;
+      height: 28px;
+      background: var(--accent);
+      clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+      display: inline-block;
+    }
+
+    .logo span { color: var(--accent); }
+
+    .header-right { display: flex; align-items: center; gap: 12px; }
+
+    .badge {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 3px 10px;
+      border-radius: 20px;
+      letter-spacing: 1px;
+    }
+
+    .pending-badge {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      letter-spacing: 1px;
+      background: rgba(163,113,247,0.15);
+      color: var(--review);
+      border: 1px solid rgba(163,113,247,0.3);
+      cursor: pointer;
+      display: none;
+    }
+
+    .pending-badge.visible { display: inline-block; }
+
+    main {
+      position: relative;
+      z-index: 1;
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 48px 40px;
+      display: grid;
+      grid-template-columns: 420px minmax(0, 1fr);
+      gap: 32px;
+      align-items: start;
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .panel-header h2 {
+      font-family: var(--font-head);
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .panel-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .panel-body { padding: 24px; }
+
+    .field { margin-bottom: 20px; }
+
+    label {
+      display: block;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--muted);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    input[type="number"] {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 16px;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 15px;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    input[type="number"]:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(0,212,170,0.12);
+    }
+
+    input[type="number"]::placeholder { color: var(--border); }
+
+    .field-hint {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--muted);
+      margin-top: 5px;
+      opacity: 0.7;
+    }
+
+    .btn-submit {
+      width: 100%;
+      padding: 16px;
+      background: var(--accent);
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      font-family: var(--font-head);
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-top: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-submit:hover {
+      background: #00f0c0;
+      transform: translateY(-1px);
+      box-shadow: 0 8px 24px rgba(0,212,170,0.3);
+    }
+
+    .btn-submit:active { transform: translateY(0); }
+    .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    .btn-submit .spinner {
+      display: none;
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(0,0,0,0.3);
+      border-top-color: #000;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: 0 auto;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .results-panel { display: flex; flex-direction: column; gap: 16px; overflow: hidden; min-width: 0; }
+
+    .score-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      opacity: 0;
+      transform: translateY(12px);
+      transition: all 0.4s ease;
+    }
+
+    .score-card.visible { opacity: 1; transform: translateY(0); }
+
+    .metric { text-align: center; }
+
+    .metric-value {
+      font-family: var(--font-head);
+      font-size: 36px;
+      font-weight: 800;
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+
+    .metric-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+    }
+
+    .tier-badge {
+      display: inline-block;
+      padding: 4px 16px;
+      border-radius: 20px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .tier-Low    { background: rgba(0,212,170,0.12); color: var(--low);      border: 1px solid rgba(0,212,170,0.3); }
+    .tier-Moderate { background: rgba(245,166,35,0.12); color: var(--moderate); border: 1px solid rgba(245,166,35,0.3); }
+    .tier-High   { background: rgba(255,69,96,0.12);  color: var(--high);     border: 1px solid rgba(255,69,96,0.3); }
+
+    .rec-escalate { color: var(--accent2); }
+    .rec-decline  { color: var(--danger); }
+
+    .score-bar-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 24px;
+      opacity: 0;
+      transform: translateY(12px);
+      transition: all 0.4s ease 0.1s;
+    }
+
+    .score-bar-wrap.visible { opacity: 1; transform: translateY(0); }
+
+    .score-bar-label {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    .score-bar-track {
+      height: 8px;
+      background: var(--surface2);
+      border-radius: 4px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .score-bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      width: 0%;
+      transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .borderline-zone {
+      position: absolute;
+      top: 0;
+      height: 100%;
+      background: rgba(245,166,35,0.15);
+      border-left: 1px dashed rgba(245,166,35,0.4);
+      border-right: 1px dashed rgba(245,166,35,0.4);
+    }
+
+    /* ── PENDING REVIEW CARD ── */
+    .review-card {
+      background: rgba(163,113,247,0.05);
+      border: 1px solid rgba(163,113,247,0.3);
+      border-radius: 12px;
+      overflow: hidden;
+      opacity: 0;
+      transform: translateY(12px);
+      transition: all 0.4s ease 0.15s;
+    }
+
+    .review-card.visible { opacity: 1; transform: translateY(0); }
+
+    .review-header {
+      padding: 16px 24px;
+      border-bottom: 1px solid rgba(163,113,247,0.2);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .review-header h3 {
+      font-family: var(--font-head);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--review);
+    }
+
+    .review-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--review);
+      box-shadow: 0 0 8px var(--review);
+      animation: pulse 1.5s infinite;
+    }
+
+    .review-body { padding: 20px 24px; }
+
+    .review-reason {
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.6;
+      margin-bottom: 20px;
+      padding: 12px 16px;
+      background: rgba(163,113,247,0.08);
+      border-radius: 8px;
+      border-left: 3px solid var(--review);
+    }
+
+    .review-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn-review {
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      border: 1px solid;
+      transition: all 0.2s;
+    }
+
+    .btn-approve {
+      background: rgba(0,212,170,0.1);
+      color: var(--accent);
+      border-color: rgba(0,212,170,0.3);
+    }
+    .btn-approve:hover { background: rgba(0,212,170,0.2); }
+
+    .btn-override-escalate {
+      background: rgba(0,144,255,0.1);
+      color: var(--accent2);
+      border-color: rgba(0,144,255,0.3);
+    }
+    .btn-override-escalate:hover { background: rgba(0,144,255,0.2); }
+
+    .btn-override-decline {
+      background: rgba(255,69,96,0.1);
+      color: var(--danger);
+      border-color: rgba(255,69,96,0.3);
+    }
+    .btn-override-decline:hover { background: rgba(255,69,96,0.2); }
+
+    .review-case-id {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--muted);
+      margin-top: 12px;
+    }
+
+    /* ── Explanation Card ── */
+    .explanation-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      opacity: 0;
+      transform: translateY(12px);
+      transition: all 0.4s ease 0.2s;
+    }
+
+    .explanation-card.visible { opacity: 1; transform: translateY(0); }
+
+    .explanation-header {
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .explanation-header h3 {
+      font-family: var(--font-head);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .llm-badge {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      background: rgba(0,144,255,0.1);
+      color: var(--accent2);
+      border: 1px solid rgba(0,144,255,0.2);
+    }
+
+    .explanation-body { padding: 20px 24px; }
+
+    .explanation-text {
+      font-size: 14px;
+      line-height: 1.7;
+      color: var(--text);
+      margin-bottom: 16px;
+    }
+
+    .policy-refs h4 {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .policy-ref-item {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--accent);
+      padding: 6px 12px;
+      background: rgba(0,212,170,0.05);
+      border-left: 2px solid var(--accent);
+      border-radius: 0 4px 4px 0;
+      margin-bottom: 6px;
+    }
+
+    .flags-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      padding: 16px 24px;
+      border-top: 1px solid var(--border);
+    }
+
+    .flag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 4px 12px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .flag-ok   { background: rgba(0,212,170,0.08); color: var(--low);      border: 1px solid rgba(0,212,170,0.2); }
+    .flag-warn { background: rgba(245,166,35,0.08); color: var(--moderate); border: 1px solid rgba(245,166,35,0.2); }
+    .flag-err  { background: rgba(255,69,96,0.08);  color: var(--high);     border: 1px solid rgba(255,69,96,0.2); }
+    .flag-review { background: rgba(163,113,247,0.08); color: var(--review); border: 1px solid rgba(163,113,247,0.2); }
+
+    .json-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      opacity: 0;
+      transform: translateY(12px);
+      transition: all 0.4s ease 0.3s;
+    }
+
+    .json-card.visible { opacity: 1; transform: translateY(0); }
+
+    .json-header {
+      padding: 14px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .json-header h3 {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .copy-btn {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted);
+      background: none;
+      border: 1px solid var(--border);
+      padding: 4px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+    pre {
+      padding: 20px 24px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      line-height: 1.7;
+      color: #8b949e;
+      overflow-x: auto;
+      max-height: 320px;
+      overflow-y: auto;
+    }
+
+    pre .key   { color: #79c0ff; }
+    pre .str   { color: #a5d6ff; }
+    pre .num   { color: #00d4aa; }
+    pre .bool  { color: #f5a623; }
+    pre .null  { color: #8b949e; }
+
+    .empty-state {
+      grid-column: 1;
+      text-align: center;
+      padding: 60px 24px;
+      color: var(--muted);
+    }
+
+    .empty-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+      opacity: 0.3;
+    }
+
+    .empty-state p {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      letter-spacing: 0.5px;
+    }
+
+    .error-card {
+      background: rgba(255,69,96,0.05);
+      border: 1px solid rgba(255,69,96,0.2);
+      border-radius: 12px;
+      padding: 24px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--danger);
+    }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--surface2); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    @media (max-width: 900px) {
+      main { grid-template-columns: 1fr; padding: 24px 20px; }
+      header { padding: 0 20px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <span class="logo-mark"></span>
+    Loan<span>Triage</span>
+  </div>
+  <div class="header-right">
+    <span class="pending-badge" id="pendingBadge" onclick="loadPendingPanel()">⏳ PENDING REVIEW</span>
+    <span class="badge">DECISION SUPPORT SYSTEM · LOCAL LLM</span>
+  </div>
+</header>
+
+<main>
+  <!-- ── Input Form ── -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-dot"></span>
+      <h2>Application Input</h2>
+    </div>
+    <div class="panel-body">
+      <form id="triageForm">
+        <div class="field">
+          <label>Credit Score</label>
+          <input type="number" id="credit_score" placeholder="e.g. 680" min="300" max="850" required />
+          <div class="field-hint">FICO range: 300 – 850</div>
+        </div>
+        <div class="field">
+          <label>Monthly Income (USD)</label>
+          <input type="number" id="monthly_income" placeholder="e.g. 5000" min="1" step="any" required />
+          <div class="field-hint">Gross monthly income before taxes</div>
+        </div>
+        <div class="field">
+          <label>Debt-to-Income Ratio</label>
+          <input type="number" id="debt_to_income_ratio" placeholder="e.g. 0.35" min="0" max="1" step="0.01" required />
+          <div class="field-hint">Decimal format: 0.43 = 43%</div>
+        </div>
+        <div class="field">
+          <label>Recent Delinquencies</label>
+          <input type="number" id="recent_delinquencies" placeholder="e.g. 1" min="0" step="1" required />
+          <div class="field-hint">Number of delinquencies in past 24 months</div>
+        </div>
+        <div class="field">
+          <label>Loan Amount Requested (USD)</label>
+          <input type="number" id="loan_amount_requested" placeholder="e.g. 15000" min="1" step="any" required />
+          <div class="field-hint">Total loan amount requested</div>
+        </div>
+        <button type="submit" class="btn-submit" id="submitBtn">
+          <span id="btnText">RUN TRIAGE ANALYSIS</span>
+          <div class="spinner" id="spinner"></div>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Results ── -->
+  <div class="results-panel" id="resultsPanel">
+    <div class="empty-state" id="emptyState">
+      <div class="empty-icon">◈</div>
+      <p>Submit an application to see the triage result</p>
+    </div>
+  </div>
+</main>
+
+<script>
+  const form = document.getElementById('triageForm');
+  const resultsPanel = document.getElementById('resultsPanel');
+  const submitBtn = document.getElementById('submitBtn');
+  const btnText = document.getElementById('btnText');
+  const spinner = document.getElementById('spinner');
+  const pendingBadge = document.getElementById('pendingBadge');
+
+  let currentCaseId = null;
+
+  // Poll for pending reviews
+  async function checkPending() {
+    try {
+      const res = await fetch('/api/pending');
+      const data = await res.json();
+      if (data.pending_count > 0) {
+        pendingBadge.textContent = `⏳ ${data.pending_count} PENDING REVIEW`;
+        pendingBadge.classList.add('visible');
+      } else {
+        pendingBadge.classList.remove('visible');
+      }
+    } catch (_) {}
+  }
+
+  setInterval(checkPending, 10000);
+  checkPending();
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    submitBtn.disabled = true;
+    btnText.style.display = 'none';
+    spinner.style.display = 'block';
+
+    const payload = {
+      credit_score: parseInt(document.getElementById('credit_score').value),
+      monthly_income: parseFloat(document.getElementById('monthly_income').value),
+      debt_to_income_ratio: parseFloat(document.getElementById('debt_to_income_ratio').value),
+      recent_delinquencies: parseInt(document.getElementById('recent_delinquencies').value),
+      loan_amount_requested: parseFloat(document.getElementById('loan_amount_requested').value),
+    };
+
+    try {
+      const res = await fetch('/api/triage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      renderResults(data);
+      checkPending();
+    } catch (err) {
+      resultsPanel.innerHTML = `<div class="error-card">⚠ Connection error: ${err.message}<br><br>Ensure the API server is running on localhost:8080</div>`;
+    } finally {
+      submitBtn.disabled = false;
+      btnText.style.display = 'block';
+      spinner.style.display = 'none';
+    }
+  });
+
+  function getTierClass(tier) {
+    if (tier === 'Low') return 'tier-Low';
+    if (tier === 'High') return 'tier-High';
+    return 'tier-Moderate';
+  }
+
+  function getScoreColor(score) {
+    if (score <= 35) return 'var(--low)';
+    if (score <= 62) return 'var(--moderate)';
+    return 'var(--high)';
+  }
+
+  async function submitReview(caseId, decision) {
+    try {
+      const res = await fetch(`/api/review/${caseId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ human_decision: decision }),
+      });
+      const data = await res.json();
+      renderResults(data);
+      checkPending();
+    } catch (err) {
+      alert(`Review submission failed: ${err.message}`);
+    }
+  }
+
+  async function loadPendingPanel() {
+    try {
+      const res = await fetch('/api/pending');
+      const data = await res.json();
+      if (data.cases.length === 0) {
+        resultsPanel.innerHTML = `<div class="empty-state"><div class="empty-icon">✓</div><p>No cases pending review</p></div>`;
+        return;
+      }
+      const caseHtml = data.cases.map(c => `
+        <div class="review-card visible" style="margin-bottom:12px">
+          <div class="review-header"><span class="review-dot"></span><h3>Pending Review</h3></div>
+          <div class="review-body">
+            <div class="review-reason">${c.review_reason || 'Manual review required.'}</div>
+            <div style="font-family:var(--font-mono);font-size:12px;color:var(--muted);margin-bottom:12px">
+              Score: ${c.risk_score ?? 'N/A'} · Tier: ${c.risk_tier ?? 'N/A'} · ${(c.triage_recommendation || '').replace(/_/g,' ')}
+            </div>
+            <div class="review-actions">
+              <button class="btn-review btn-approve" onclick="submitReview('${c.case_id}','approve')">✓ Approve Recommendation</button>
+              <button class="btn-review btn-override-escalate" onclick="submitReview('${c.case_id}','override_escalate')">↑ Override: Escalate</button>
+              <button class="btn-review btn-override-decline" onclick="submitReview('${c.case_id}','override_decline')">↓ Override: Decline</button>
+            </div>
+            <div class="review-case-id">Case ID: ${c.case_id}</div>
+          </div>
+        </div>`).join('');
+      resultsPanel.innerHTML = caseHtml;
+    } catch (err) {
+      resultsPanel.innerHTML = `<div class="error-card">Failed to load pending reviews: ${err.message}</div>`;
+    }
+  }
+
+  function renderResults(data) {
+    currentCaseId = data.case_id || null;
+    const tier = data.risk_tier || 'N/A';
+    const score = data.risk_score ?? 0;
+    const rec = data.triage_recommendation || '';
+    const borderline = data.borderline_flag;
+    const llmStatus = data.llm_status;
+    const fallback = data.fallback_used;
+    const errorFlag = data.error_flag;
+    const pendingReview = data.pending_review;
+    const reviewReason = data.review_reason;
+
+    const recLabel = rec === 'escalate_to_underwriting'
+      ? '<span class="rec-escalate">↑ ESCALATE TO UNDERWRITING</span>'
+      : '<span class="rec-decline">↓ RECOMMEND DECLINE</span>';
+
+    const barColor = getScoreColor(score);
+    const borderlineLeft = 45;
+    const borderlineRight = 65;
+
+    let llmFlagClass = 'flag-ok';
+    let llmFlagLabel = `● LLM: ${llmStatus}`;
+    if (llmStatus === 'failed_after_retries') llmFlagClass = 'flag-err';
+    else if (llmStatus === 'retry') llmFlagClass = 'flag-warn';
+    else if (llmStatus === 'skipped') llmFlagClass = 'flag-warn';
+
+    // ── PENDING REVIEW CARD ──
+    let reviewHTML = '';
+    if (pendingReview && currentCaseId) {
+      reviewHTML = `
+        <div class="review-card" id="reviewCard">
+          <div class="review-header">
+            <span class="review-dot"></span>
+            <h3>Pending Review Required</h3>
+          </div>
+          <div class="review-body">
+            <div class="review-reason">${reviewReason || 'This case requires human review before the decision is finalised.'}</div>
+            <div class="review-actions">
+              <button class="btn-review btn-approve" onclick="submitReview('${currentCaseId}','approve')">✓ Approve Recommendation</button>
+              <button class="btn-review btn-override-escalate" onclick="submitReview('${currentCaseId}','override_escalate')">↑ Override: Escalate to Underwriting</button>
+              <button class="btn-review btn-override-decline" onclick="submitReview('${currentCaseId}','override_decline')">↓ Override: Recommend Decline</button>
+            </div>
+            <div class="review-case-id">Case ID: ${currentCaseId}</div>
+          </div>
+        </div>`;
+    }
+
+    // ── EXPLANATION CARD ──
+    let explanationHTML = '';
+    if (data.decision_explanation) {
+      const refsHTML = (data.policy_references || []).map(r =>
+        `<div class="policy-ref-item">↳ ${r}</div>`
+      ).join('');
+
+      explanationHTML = `
+        <div class="explanation-card" id="expCard">
+          <div class="explanation-header">
+            <h3>Policy-Aware Reasoning</h3>
+            <span class="llm-badge">phi4-mini · LOCAL LLM</span>
+          </div>
+          <div class="explanation-body">
+            <p class="explanation-text">${data.decision_explanation}</p>
+            ${refsHTML ? `<div class="policy-refs"><h4>Policy References</h4>${refsHTML}</div>` : ''}
+          </div>
+          <div class="flags-row">
+            <span class="flag ${llmFlagClass}">${llmFlagLabel}</span>
+            ${borderline ? '<span class="flag flag-warn">◈ BORDERLINE CASE</span>' : ''}
+            ${fallback ? '<span class="flag flag-warn">⚠ FALLBACK USED</span>' : ''}
+            ${pendingReview ? '<span class="flag flag-review">⏳ PENDING REVIEW</span>' : ''}
+            ${errorFlag ? '<span class="flag flag-err">✕ PIPELINE ERROR</span>' : ''}
+          </div>
+        </div>`;
+    } else {
+      explanationHTML = `
+        <div class="explanation-card" id="expCard">
+          <div class="explanation-header">
+            <h3>Decision Rationale</h3>
+            <span class="llm-badge" style="background:rgba(139,148,158,0.1);color:var(--muted);border-color:var(--border)">DETERMINISTIC PATH</span>
+          </div>
+          <div class="explanation-body">
+            <p class="explanation-text" style="color:var(--muted)">
+              This application was processed via the deterministic pipeline (Path A).
+              No LLM reasoning was required — the risk score and tier clearly indicate the recommendation.
+            </p>
+          </div>
+          <div class="flags-row">
+            <span class="flag ${llmFlagClass}">${llmFlagLabel}</span>
+            ${fallback ? '<span class="flag flag-warn">⚠ FALLBACK USED</span>' : ''}
+            ${pendingReview ? '<span class="flag flag-review">⏳ PENDING REVIEW</span>' : ''}
+            ${errorFlag ? '<span class="flag flag-err">✕ PIPELINE ERROR</span>' : ''}
+          </div>
+        </div>`;
+    }
+
+    const jsonStr = JSON.stringify(data, null, 2);
+    const highlighted = jsonStr
+      .replace(/("[\w_]+")\s*:/g, '<span class="key">$1</span>:')
+      .replace(/:\s*(".*?")/g, ': <span class="str">$1</span>')
+      .replace(/:\s*(\d+\.?\d*)/g, ': <span class="num">$1</span>')
+      .replace(/:\s*(true|false)/g, ': <span class="bool">$1</span>')
+      .replace(/:\s*(null)/g, ': <span class="null">$1</span>');
+
+    resultsPanel.innerHTML = `
+      <div class="score-card" id="scoreCard">
+        <div class="metric">
+          <div class="metric-value" style="color:${barColor}">${score.toFixed ? score.toFixed(1) : score}</div>
+          <div class="metric-label">Risk Score / 100</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value" style="font-size:20px;padding-top:8px">
+            <span class="tier-badge ${getTierClass(tier)}">${tier}</span>
+          </div>
+          <div class="metric-label" style="margin-top:14px">Risk Tier</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value" style="font-size:13px;padding-top:8px;font-family:var(--font-mono)">${recLabel}</div>
+          <div class="metric-label" style="margin-top:14px">Recommendation</div>
+        </div>
+      </div>
+
+      <div class="score-bar-wrap" id="barWrap">
+        <div class="score-bar-label">
+          <span>LOW RISK</span>
+          <span>← BORDERLINE ZONE →</span>
+          <span>HIGH RISK</span>
+        </div>
+        <div class="score-bar-track">
+          <div class="borderline-zone" style="left:${borderlineLeft}%;width:${borderlineRight - borderlineLeft}%"></div>
+          <div class="score-bar-fill" id="scoreFill" style="background:${barColor}"></div>
+        </div>
+      </div>
+
+      ${reviewHTML}
+      ${explanationHTML}
+
+      <div class="json-card" id="jsonCard">
+        <div class="json-header">
+          <h3>Raw JSON Output</h3>
+          <button class="copy-btn" onclick="copyJSON()">COPY</button>
+        </div>
+        <pre id="jsonOutput">${highlighted}</pre>
+      </div>
+    `;
+
+    requestAnimationFrame(() => {
+      setTimeout(() => document.getElementById('scoreCard')?.classList.add('visible'), 50);
+      setTimeout(() => document.getElementById('barWrap')?.classList.add('visible'), 150);
+      setTimeout(() => document.getElementById('reviewCard')?.classList.add('visible'), 200);
+      setTimeout(() => document.getElementById('expCard')?.classList.add('visible'), 250);
+      setTimeout(() => document.getElementById('jsonCard')?.classList.add('visible'), 350);
+      setTimeout(() => {
+        const fill = document.getElementById('scoreFill');
+        if (fill) fill.style.width = `${Math.min(score, 100)}%`;
+      }, 300);
+    });
+  }
+
+  function copyJSON() {
+    const pre = document.getElementById('jsonOutput');
+    if (pre) {
+      navigator.clipboard.writeText(pre.innerText);
+      const btn = document.querySelector('.copy-btn');
+      if (btn) { btn.textContent = 'COPIED!'; setTimeout(() => btn.textContent = 'COPY', 2000); }
+    }
+  }
+
+  window.copyJSON = copyJSON;
+  window.submitReview = submitReview;
+  window.loadPendingPanel = loadPendingPanel;
+</script>
+</body>
+</html>
