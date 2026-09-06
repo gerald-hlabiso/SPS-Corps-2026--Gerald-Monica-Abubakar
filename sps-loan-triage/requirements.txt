@@ -1,30 +1,15 @@
-# Core agent framework
-langgraph
-langchain-ollama
-
-# Data validation and schemas
-pydantic
-
-# HTTP client for Ollama
-requests
-
-# Config loading
-pyyaml
-
-# Vector store for semantic policy retrieval
-chromadb
-
-# Data handling
-pandas
-numpy
-scikit-learn
-
-# API layer
-fastapi
-uvicorn
-
-# Observability
-langfuse
-
-# Utilities
-python-dotenv
+# Deployment-tested Python 3.11 dependency set
+langgraph==0.2.74
+langchain-ollama==0.2.3
+pydantic==2.10.6
+requests==2.32.3
+PyYAML==6.0.2
+chromadb==0.6.3
+pandas==2.2.3
+numpy==2.2.2
+scikit-learn==1.6.1
+fastapi==0.115.8
+uvicorn==0.34.0
+langfuse==2.59.3
+python-dotenv==1.0.1
+pytest==8.3.4

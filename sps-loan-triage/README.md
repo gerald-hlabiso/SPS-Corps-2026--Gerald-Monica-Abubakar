@@ -260,3 +260,72 @@ sps-loan-triage/
     ├── test_output_handler.py
     └── test_pipeline.py
 ```
+
+
+---
+
+## Docker Deployment
+
+The Docker Compose deployment runs the FastAPI application and Ollama as separate
+services. It automatically downloads the primary, fallback, and embedding models
+on first start. Ollama models, the Chroma policy store, and audit logs persist
+across container restarts.
+
+### Requirements
+
+- Docker Engine 24+ with the Docker Compose plugin
+- At least 8 GB RAM recommended for CPU inference
+- At least 15 GB free disk space for images and model data
+
+### Start the complete system
+
+```bash
+cd sps-loan-triage
+cp .env.example .env
+docker compose up --build -d
+```
+
+The first startup takes longer because Ollama downloads the configured models.
+Follow progress with:
+
+```bash
+docker compose logs -f ollama-init
+```
+
+When initialization finishes, open:
+
+```text
+http://localhost:8080
+```
+
+Check service status:
+
+```bash
+docker compose ps
+curl http://localhost:8080/api/health
+```
+
+Run the test suite inside the application image:
+
+```bash
+docker compose run --rm --no-deps loan-triage pytest tests/ -v
+```
+
+Stop the services without deleting persistent data:
+
+```bash
+docker compose down
+```
+
+To delete containers and the downloaded Ollama model volume:
+
+```bash
+docker compose down --volumes
+```
+
+### Cloud server notes
+
+For a public demonstration, deploy this Compose stack on a Linux VM and place
+Caddy, Nginx, or a managed load balancer in front of port 8080 for HTTPS. Do not
+expose Ollama's port 11434 publicly. The interface is for demonstration only;
+never enter real personally identifiable or confidential applicant information.

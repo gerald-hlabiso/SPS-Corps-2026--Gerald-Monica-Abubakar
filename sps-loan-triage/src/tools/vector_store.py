@@ -15,10 +15,11 @@ VECTORSTORE_PATH = os.path.join(
     os.path.dirname(__file__), "..", "..", "data", "processed", "policy_vectorstore"
 )
 
-OLLAMA_EMBED_URL = "http://localhost:11434/api/embed"
-EMBED_MODEL_PRIMARY = "nomic-embed-text"
-EMBED_MODEL_FALLBACK = "all-minilm"
-EMBED_TIMEOUT = 30
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434").rstrip("/")
+OLLAMA_EMBED_URL = f"{OLLAMA_HOST}/api/embed"
+EMBED_MODEL_PRIMARY = os.getenv("OLLAMA_EMBED_MODEL", "nomic-embed-text")
+EMBED_MODEL_FALLBACK = os.getenv("OLLAMA_EMBED_FALLBACK_MODEL", "all-minilm")
+EMBED_TIMEOUT = int(os.getenv("OLLAMA_EMBED_TIMEOUT_SECONDS", "30"))
 
 COLLECTION_NAME = "lending_policy"
 
