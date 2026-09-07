@@ -17,7 +17,7 @@ OLLAMA_BASE_URL = f"{OLLAMA_HOST}/api/chat"
 
 # Primary and fallback model names — must match exactly what is pulled in Ollama
 PRIMARY_MODEL = os.getenv("OLLAMA_PRIMARY_MODEL", "phi4-mini")
-FALLBACK_MODEL = os.getenv("OLLAMA_FALLBACK_MODEL", "gemma3:2b")
+FALLBACK_MODEL = os.getenv("OLLAMA_FALLBACK_MODEL", "gemma3:1b")
 
 # CPU inference can be slow on the first request while the model loads.
 DEFAULT_TIMEOUT = int(os.getenv("OLLAMA_TIMEOUT_SECONDS", "120"))
