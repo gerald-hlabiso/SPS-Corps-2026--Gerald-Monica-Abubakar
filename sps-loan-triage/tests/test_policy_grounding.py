@@ -151,3 +151,13 @@ def test_policy_ids_are_expanded_to_exact_clauses():
     assert normalized.policy_references
     assert all(ref.startswith("POL-") and ": " in ref for ref in normalized.policy_references)
     assert next(c for c in clauses if c.startswith("POL-002:")) in normalized.policy_references
+
+
+def test_grounding_guard_rejects_ambiguous_credit_threshold_claim():
+    state, clauses = _reasoning_state()
+    output = ReasoningAgentOutput(
+        decision_explanation="The applicant's credit score of 600 is below the threshold.",
+        policy_references=[next(c for c in clauses if c.startswith("POL-002:"))],
+    )
+    with pytest.raises(ValueError, match="credit score"):
+        _validate_grounding(output, state)
