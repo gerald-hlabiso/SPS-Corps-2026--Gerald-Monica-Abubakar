@@ -123,6 +123,82 @@ def _validate_grounding(
         raise ValueError("LLM falsely claimed DTI exceeds 43%")
 
 
+def _build_verified_explanation(
+    state: AgentState, policy_references: list[str]
+) -> str:
+    """Render the final rationale from verified inputs and applicable policy IDs."""
+    validated = state["validated_input"]
+    score = state["risk_score"]
+    tier = state["risk_tier"]
+    recommendation = state["triage_recommendation"].replace("_", " ")
+    dti_pct = validated["debt_to_income_ratio"] * 100
+    credit_score = validated["credit_score"]
+    delinquencies = validated["recent_delinquencies"]
+    policy_ids = {
+        match.group(0)
+        for reference in policy_references
+        if (match := re.search(r"POL-\d{3}", reference))
+    }
+
+    sentences = [
+        (
+            f"The application has a verified risk score of {score:.2f}/100, "
+            f"a {tier} risk tier, and a {recommendation} recommendation"
+            + (" within the configured borderline zone." if state["borderline_flag"] else ".")
+        )
+    ]
+
+    if "POL-002" in policy_ids:
+        sentences.append(
+            f"The applicant's {dti_pct:.1f}% debt-to-income ratio exceeds the "
+            "institution's 43% escalation trigger, so POL-002 requires "
+            "escalation to underwriting."
+        )
+    if "POL-003" in policy_ids:
+        sentences.append(
+            f"The credit score of {credit_score} is below 580, so POL-003 "
+            "requires senior-underwriter review."
+        )
+    if "POL-004" in policy_ids:
+        sentences.append(
+            f"The applicant has {delinquencies} recent delinquencies, meeting "
+            "POL-004's threshold of two or more and requiring documented review."
+        )
+
+    non_triggers = []
+    if credit_score >= 580:
+        non_triggers.append(
+            f"the credit score of {credit_score} does not trigger the below-580 policy"
+        )
+    if delinquencies < 2:
+        non_triggers.append(
+            f"{delinquencies} recent delinquency does not trigger the two-or-more policy"
+            if delinquencies == 1
+            else "zero recent delinquencies do not trigger the two-or-more policy"
+        )
+    if non_triggers:
+        sentences.append(
+            "For clarity, " + ", and ".join(non_triggers) + "."
+        )
+
+    actions = []
+    if "POL-007" in policy_ids:
+        actions.append("income or assets must be verified before final approval")
+    if "POL-008" in policy_ids:
+        actions.append("documented compensating factors may be assessed")
+    if actions:
+        sentences.append(
+            "During underwriting, " + ", and ".join(actions) + "."
+        )
+    if "POL-010" in policy_ids:
+        sentences.append(
+            "The inputs, score, applicable policies, and recommendation must be "
+            "retained in the structured audit record under POL-010."
+        )
+
+    return " ".join(sentences)
+
+
 def reasoning_agent_node(state: AgentState) -> AgentState:
     """
     Mode 2 LLM reasoning node.
@@ -141,9 +217,12 @@ def reasoning_agent_node(state: AgentState) -> AgentState:
         )
         output = _normalize_policy_references(output, state)
         _validate_grounding(output, state)
+        verified_explanation = _build_verified_explanation(
+            state, output.policy_references
+        )
         return {
             **state,
-            "decision_explanation": output.decision_explanation,
+            "decision_explanation": verified_explanation,
             "policy_references": output.policy_references,
             "model_used": PRIMARY_MODEL,
             "llm_status": "success",
