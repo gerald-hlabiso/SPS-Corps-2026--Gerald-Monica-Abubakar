@@ -143,7 +143,7 @@ def _build_verified_explanation(
     sentences = [
         (
             f"The application has a verified risk score of {score:.2f}/100, "
-            f"a {tier} risk tier, and a {recommendation} recommendation"
+            f"a {tier} risk tier, and a recommendation to {recommendation}"
             + (" within the configured borderline zone." if state["borderline_flag"] else ".")
         )
     ]
