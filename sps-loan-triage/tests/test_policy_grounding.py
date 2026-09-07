@@ -2,7 +2,7 @@
 
 import pytest
 
-from agent.reasoning_agent import _validate_grounding
+from agent.reasoning_agent import _validate_grounding\nfrom orchestrator import policy_retrieval_node
 from schemas import ReasoningAgentOutput
 from state import initial_state
 from tools.policy_retrieval import (
@@ -116,3 +116,23 @@ def test_grounded_explanation_passes():
         policy_references=[dti_clause],
     )
     _validate_grounding(output, state)
+
+
+def test_policy_node_resolves_conflict_and_refreshes_context():
+    state = initial_state(_case())
+    state = {
+        **state,
+        "validated_input": _case(),
+        "risk_score": 38.95,
+        "risk_tier": "Moderate",
+        "borderline_flag": True,
+        "triage_recommendation": "recommend_decline",
+    }
+
+    result = policy_retrieval_node(state)
+
+    assert result["triage_recommendation"] == "escalate_to_underwriting"
+    assert "POL-002:" in result["policy_context"]
+    assert "POL-003:" not in result["policy_context"]
+    assert "POL-004:" not in result["policy_context"]
+    assert "POL-006:" not in result["policy_context"]
