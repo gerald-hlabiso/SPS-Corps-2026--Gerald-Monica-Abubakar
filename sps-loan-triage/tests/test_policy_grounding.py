@@ -2,7 +2,7 @@
 
 import pytest
 
-from agent.reasoning_agent import _validate_grounding
+from agent.reasoning_agent import _normalize_policy_references, _validate_grounding
 from orchestrator import policy_retrieval_node
 from schemas import ReasoningAgentOutput
 from state import initial_state
@@ -137,3 +137,17 @@ def test_policy_node_resolves_conflict_and_refreshes_context():
     assert "POL-003:" not in result["policy_context"]
     assert "POL-004:" not in result["policy_context"]
     assert "POL-006:" not in result["policy_context"]
+
+
+def test_policy_ids_are_expanded_to_exact_clauses():
+    state, clauses = _reasoning_state()
+    output = ReasoningAgentOutput(
+        decision_explanation="The applicant's 45.0% DTI requires escalation.",
+        policy_references=["POL-002", "POL-005"],
+    )
+
+    normalized = _normalize_policy_references(output, state)
+
+    assert normalized.policy_references
+    assert all(ref.startswith("POL-") and ": " in ref for ref in normalized.policy_references)
+    assert next(c for c in clauses if c.startswith("POL-002:")) in normalized.policy_references
