@@ -1,10 +1,10 @@
 {
-  "version": "2.0",
-  "description": "Synthetic institutional lending policy for unsecured personal consumer loans. Derived from CFPB Ability-to-Repay guidelines, Fannie Mae Selling Guide underwriting standards, and FTC Fair Lending principles. For prototype and demonstration purposes only.",
+  "version": "2.1",
+  "description": "Synthetic institutional lending policy for unsecured personal consumer loans. Derived from public regulatory and underwriting guidance. For prototype and demonstration purposes only.",
   "sources": [
     "CFPB Ability-to-Repay and Qualified Mortgage Rule (12 CFR Part 1026)",
-    "Fannie Mae Selling Guide B3-1-01: Comprehensive Risk Assessment",
-    "FTC Fair Lending Guidelines: Adverse Action and Risk Factor Disclosure"
+    "Fannie Mae Selling Guide",
+    "ECOA and Regulation B recordkeeping and adverse-action requirements"
   ],
   "policies": [
     {
@@ -12,6 +12,8 @@
       "category": "Risk Tier Escalation",
       "trigger_tiers": ["High"],
       "trigger_conditions": ["high_risk_tier"],
+      "applicability": {"all": ["high_risk_tier"]},
+      "required_action": "escalate_to_underwriting",
       "clause": "Applications assigned a High risk tier require mandatory escalation to manual underwriting. No intake-stage decline may be issued without full underwriter review, consistent with CFPB Ability-to-Repay requirements that lenders make a reasonable and good-faith determination of repayment ability before adverse action."
     },
     {
@@ -19,13 +21,17 @@
       "category": "Debt-to-Income",
       "trigger_tiers": ["Moderate", "High"],
       "trigger_conditions": ["high_dti"],
-      "clause": "Applications with a debt-to-income ratio exceeding 43% require mandatory escalation to underwriting regardless of other scoring factors. This threshold is derived from the CFPB Qualified Mortgage standard under 12 CFR Part 1026.43, which identifies 43% DTI as the maximum ratio consistent with a presumption of repayment ability."
+      "applicability": {"all": ["high_dti"]},
+      "required_action": "escalate_to_underwriting",
+      "clause": "Under this demonstration institution's policy, applications with a debt-to-income ratio exceeding 43% require mandatory escalation to underwriting regardless of other scoring factors. The 43% value is an internal escalation trigger for this prototype; it is not represented as an automatic-decline threshold or a universal legal maximum."
     },
     {
       "id": "POL-003",
       "category": "Credit History",
       "trigger_tiers": ["Moderate", "High"],
       "trigger_conditions": ["low_credit_score"],
+      "applicability": {"all": ["low_credit_score"]},
+      "required_action": "escalate_to_underwriting",
       "clause": "Applications with a credit score below 580 are classified as subprime and must be reviewed by a senior underwriter before any triage decision is issued. Per Fannie Mae Selling Guide B3-5.1, credit scores below 580 indicate elevated default risk and require compensating factor analysis, including income stability, employment history, and collateral assessment where applicable."
     },
     {
@@ -33,6 +39,8 @@
       "category": "Delinquency History",
       "trigger_tiers": ["Moderate", "High"],
       "trigger_conditions": ["recent_delinquencies"],
+      "applicability": {"all": ["recent_delinquencies"]},
+      "required_action": "escalate_to_underwriting",
       "clause": "Applications with two or more delinquencies in the past 24 months require escalation and documentation of the applicant's repayment history. Per Fannie Mae Selling Guide B3-5.3, recent delinquencies are a significant adverse factor in creditworthiness assessment and must be reviewed for pattern, severity, and explanation before a triage recommendation is issued."
     },
     {
@@ -40,42 +48,49 @@
       "category": "Borderline Review",
       "trigger_tiers": ["Low", "Moderate", "High"],
       "trigger_conditions": ["borderline"],
-      "clause": "Applications falling within the defined margin around institutional escalation thresholds are classified as borderline and must receive a structured, policy-aligned review before a final triage recommendation is issued. This requirement reflects FTC Fair Lending guidance that adverse action decisions near threshold boundaries carry elevated legal and reputational risk and require documented justification."
+      "applicability": {"all": ["borderline"]},
+      "clause": "Applications falling within the defined margin around institutional escalation thresholds are classified as borderline and must receive a structured, policy-aligned review before a final triage recommendation is issued. This requirement reflects fair-lending principles that adverse decisions near threshold boundaries carry elevated legal and reputational risk and require documented justification."
     },
     {
       "id": "POL-006",
       "category": "Adverse Action Disclosure",
-      "trigger_tiers": ["High"],
-      "trigger_conditions": ["high_risk_tier", "low_credit_score"],
-      "clause": "When a decline recommendation is issued at intake, the system must log the specific risk factors that contributed to the decision. Per FTC Fair Lending guidelines and the Equal Credit Opportunity Act (ECOA), adverse action notices must identify the principal reasons for the decision, limited to no more than four factors, in order of their significance to the outcome."
+      "trigger_tiers": ["Low", "Moderate", "High"],
+      "trigger_conditions": ["decline_recommendation"],
+      "applicability": {"all": ["decline_recommendation"]},
+      "clause": "When a decline recommendation is issued at intake, the system must log the specific risk factors that contributed to the decision. Under ECOA and Regulation B, an adverse-action notice must identify the principal reasons for the decision accurately and specifically."
     },
     {
       "id": "POL-007",
       "category": "Income Verification",
       "trigger_tiers": ["Moderate", "High"],
-      "trigger_conditions": ["high_dti", "high_risk_tier"],
-      "clause": "Applications where the debt-to-income ratio exceeds 36% or the risk tier is Moderate or High must be flagged for income verification prior to final underwriting approval. Per CFPB Ability-to-Repay Rule Section 1026.43(c)(4), lenders must verify current or reasonably expected income using reliable third-party records, including tax returns, pay stubs, or employer verification, before extending credit."
+      "trigger_conditions": ["dti_above_36", "moderate_or_high_risk_tier"],
+      "applicability": {"any": ["dti_above_36", "moderate_or_high_risk_tier"]},
+      "clause": "Applications where the debt-to-income ratio exceeds 36% or the risk tier is Moderate or High must be flagged for income verification prior to final underwriting approval. Ability-to-Repay rules require applicable creditors to verify current or reasonably expected income or assets using reliable records before extending covered credit."
     },
     {
       "id": "POL-008",
       "category": "Compensating Factors",
       "trigger_tiers": ["Moderate"],
-      "trigger_conditions": ["borderline", "high_dti"],
-      "clause": "Borderline applications with a DTI between 43% and 50% may qualify for escalation with compensating factors in lieu of automatic decline. Per Fannie Mae Selling Guide B3-6-02, acceptable compensating factors include significant liquid reserves equivalent to at least 12 months of loan payments, a demonstrated history of managing similar or higher debt levels, or documented evidence of residual income exceeding institutional minimums."
+      "trigger_conditions": ["borderline", "dti_43_to_50"],
+      "applicability": {"all": ["borderline", "dti_43_to_50"]},
+      "required_action": "escalate_to_underwriting",
+      "clause": "Borderline applications with a DTI above 43% and no greater than 50% may qualify for escalation with compensating factors in lieu of automatic decline. For this demonstration policy, compensating factors may include significant liquid reserves, a demonstrated history of managing similar debt levels, or documented residual income above institutional minimums."
     },
     {
       "id": "POL-009",
       "category": "Consistency and Non-Discrimination",
       "trigger_tiers": ["Low", "Moderate", "High"],
       "trigger_conditions": ["borderline"],
-      "clause": "Triage decisions for applications with similar financial profiles must be applied consistently regardless of applicant characteristics unrelated to creditworthiness. Per FTC Fair Lending principles and the Equal Credit Opportunity Act, any systematic variation in outcomes for similarly situated applicants constitutes a potential disparate impact violation and must be documented, monitored, and reported to the compliance oversight function."
+      "applicability": {"all": ["borderline"]},
+      "clause": "Triage decisions for applications with similar financial profiles must be applied consistently regardless of applicant characteristics unrelated to creditworthiness. Under fair-lending principles and ECOA, protected characteristics must not influence the decision, and outcome patterns should be monitored for potential disparate impact."
     },
     {
       "id": "POL-010",
       "category": "Audit and Recordkeeping",
       "trigger_tiers": ["Low", "Moderate", "High"],
-      "trigger_conditions": ["high_risk_tier", "borderline", "recent_delinquencies"],
-      "clause": "All triage decisions, including the input data, computed risk score, assigned risk tier, policy clauses applied, and final recommendation, must be retained in a structured audit log for a minimum of 25 months from the date of the decision. This retention period aligns with the ECOA and Regulation B requirement that creditors preserve records of credit applications and related actions for examination by regulatory authorities."
+      "trigger_conditions": ["always"],
+      "applicability": {"all": ["always"]},
+      "clause": "All triage decisions, including input data, computed risk score, assigned risk tier, policy clauses applied, and final recommendation, must be retained in a structured audit log. The demonstration retention schedule is 25 months to align with the general Regulation B record-retention period for many consumer-credit application records."
     }
   ]
 }

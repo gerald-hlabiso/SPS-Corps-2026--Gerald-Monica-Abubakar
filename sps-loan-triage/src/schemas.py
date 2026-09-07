@@ -91,6 +91,10 @@ class TriageOutput(BaseModel):
         default_factory=list,
         description="Policy statements cited in the explanation"
     )
+    model_used: Optional[str] = Field(
+        default=None,
+        description="Actual local LLM model used; null when reasoning was skipped or failed"
+    )
     llm_status: str = Field(
         description="success / retry / failed_after_retries / skipped"
     )

@@ -854,6 +854,11 @@
     }
 
     // ── EXPLANATION CARD ──
+    const modelLabel = data.model_used || 'LOCAL LLM';
+    const rationaleLabel = llmStatus === 'skipped' ? 'DETERMINISTIC PATH' : 'LLM FALLBACK';
+    const rationaleText = llmStatus === 'skipped'
+      ? 'This application was processed via the deterministic pipeline (Path A). No LLM reasoning was required.'
+      : 'The local LLM could not produce an accepted policy-grounded explanation. The deterministic recommendation was retained and the case was routed for human review.';
     let explanationHTML = '';
     if (data.decision_explanation) {
       const refsHTML = (data.policy_references || []).map(r =>
@@ -864,7 +869,7 @@
         <div class="explanation-card" id="expCard">
           <div class="explanation-header">
             <h3>Policy-Aware Reasoning</h3>
-            <span class="llm-badge">phi4-mini · LOCAL LLM</span>
+            <span class="llm-badge">${modelLabel} · LOCAL LLM</span>
           </div>
           <div class="explanation-body">
             <p class="explanation-text">${data.decision_explanation}</p>
@@ -883,12 +888,11 @@
         <div class="explanation-card" id="expCard">
           <div class="explanation-header">
             <h3>Decision Rationale</h3>
-            <span class="llm-badge" style="background:rgba(139,148,158,0.1);color:var(--muted);border-color:var(--border)">DETERMINISTIC PATH</span>
+            <span class="llm-badge" style="background:rgba(139,148,158,0.1);color:var(--muted);border-color:var(--border)">${rationaleLabel}</span>
           </div>
           <div class="explanation-body">
             <p class="explanation-text" style="color:var(--muted)">
-              This application was processed via the deterministic pipeline (Path A).
-              No LLM reasoning was required — the risk score and tier clearly indicate the recommendation.
+              ${rationaleText}
             </p>
           </div>
           <div class="flags-row">

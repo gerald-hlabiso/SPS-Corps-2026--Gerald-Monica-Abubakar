@@ -60,7 +60,10 @@ class ReviewRequest(BaseModel):
 
 @app.get("/")
 def serve_ui():
-    return FileResponse(os.path.join(static_dir, "index.html"))
+    return FileResponse(
+        os.path.join(static_dir, "index.html"),
+        headers={"Cache-Control": "no-store, max-age=0"},
+    )
 
 
 @app.post("/api/triage")

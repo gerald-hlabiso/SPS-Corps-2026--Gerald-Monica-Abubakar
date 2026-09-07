@@ -32,6 +32,7 @@ def assemble_final_output(state: AgentState) -> dict:
             triage_recommendation=state["triage_recommendation"],
             decision_explanation=state["decision_explanation"],
             policy_references=state["policy_references"],
+            model_used=state.get("model_used"),
             llm_status=state["llm_status"],
             fallback_used=state["fallback_used"],
             pending_review=state.get("pending_review", False),

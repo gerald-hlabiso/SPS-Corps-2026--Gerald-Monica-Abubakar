@@ -4,6 +4,7 @@
 
 import requests
 import json
+import os
 from pydantic import BaseModel
 from typing import Type, TypeVar, Optional, Union
 
@@ -11,14 +12,15 @@ from typing import Type, TypeVar, Optional, Union
 # Configuration
 # ---------------------------------------------------------------------------
 
-OLLAMA_BASE_URL = "http://localhost:11434/api/chat"
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434").rstrip("/")
+OLLAMA_BASE_URL = f"{OLLAMA_HOST}/api/chat"
 
 # Primary and fallback model names — must match exactly what is pulled in Ollama
-PRIMARY_MODEL = "phi4-mini"
-FALLBACK_MODEL = "gemma3:2b"
+PRIMARY_MODEL = os.getenv("OLLAMA_PRIMARY_MODEL", "phi4-mini")
+FALLBACK_MODEL = os.getenv("OLLAMA_FALLBACK_MODEL", "gemma3:1b")
 
-# Default timeout in seconds — LLM calls on CPU can take 2–4 seconds
-DEFAULT_TIMEOUT = 120
+# CPU inference can be slow on the first request while the model loads.
+DEFAULT_TIMEOUT = int(os.getenv("OLLAMA_TIMEOUT_SECONDS", "120"))
 
 T = TypeVar("T", bound=BaseModel)
 
