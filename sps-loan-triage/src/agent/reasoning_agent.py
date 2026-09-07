@@ -143,6 +143,7 @@ def reasoning_agent_node(state: AgentState) -> AgentState:
             **state,
             "decision_explanation": output.decision_explanation,
             "policy_references": output.policy_references,
+            "model_used": PRIMARY_MODEL,
             "llm_status": "success",
         }
 
