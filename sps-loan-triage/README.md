@@ -42,7 +42,7 @@ pip install -r requirements.txt
 # Pull Ollama models
 ollama pull phi4-mini
 ollama pull nomic-embed-text   # for semantic policy search
-ollama pull gemma3:2b          # fallback model
+ollama pull gemma3:1b          # fallback model
 ```
 
 ### CLI Usage
