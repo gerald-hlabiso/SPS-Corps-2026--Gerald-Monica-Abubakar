@@ -2,7 +2,11 @@
 
 import pytest
 
-from agent.reasoning_agent import (\n    _build_verified_explanation,\n    _normalize_policy_references,\n    _validate_grounding,\n)
+from agent.reasoning_agent import (
+    _build_verified_explanation,
+    _normalize_policy_references,
+    _validate_grounding,
+)
 from orchestrator import policy_retrieval_node
 from schemas import ReasoningAgentOutput
 from state import initial_state
