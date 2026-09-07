@@ -10,7 +10,11 @@ from state import AgentState, initial_state
 from config_loader import get_config
 from tools.validator import validate_input
 from tools.scoring import run_scoring_engine
-from tools.policy_retrieval import (\n    retrieve_policy_clauses,\n    format_policy_context,\n    required_policy_action,\n)
+from tools.policy_retrieval import (
+    retrieve_policy_clauses,
+    format_policy_context,
+    required_policy_action,
+)
 from tools.output_handler import assemble_final_output, log_pipeline_record
 from agent.reasoning_agent import reasoning_agent_node
 
