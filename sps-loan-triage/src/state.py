@@ -33,6 +33,7 @@ class AgentState(TypedDict):
     # -------------------------
     decision_explanation: Optional[str]   # LLM-generated structured explanation
     policy_references: List[str]          # List of cited policy statements
+    model_used: Optional[str]              # Actual LLM model used for the explanation
 
     # -------------------------
     # Pipeline control fields
@@ -80,6 +81,7 @@ def initial_state(application_input: dict) -> AgentState:
         policy_retrieval_status="none_found",
         decision_explanation=None,
         policy_references=[],
+        model_used=None,
         llm_status="skipped",
         fallback_used=False,
         retry_count=0,
