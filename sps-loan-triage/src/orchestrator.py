@@ -77,6 +77,16 @@ def policy_retrieval_node(state: AgentState) -> AgentState:
     )
     policy_action = required_policy_action(policy_clauses)
     recommendation = policy_action or state["triage_recommendation"]
+
+    # Re-evaluate recommendation-dependent policies after a mandatory action.
+    if recommendation != state["triage_recommendation"]:
+        policy_clauses, retrieval_status = retrieve_policy_clauses(
+            risk_tier=state["risk_tier"],
+            borderline_flag=state["borderline_flag"],
+            validated_input=state["validated_input"],
+            triage_recommendation=recommendation,
+        )
+
     return {
         **state,
         "triage_recommendation": recommendation,
