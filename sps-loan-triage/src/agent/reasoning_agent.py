@@ -31,6 +31,8 @@ CRITICAL RULES:
   Do not use numbers, abbreviations, or short labels.
 - Never claim that a threshold is met unless the displayed applicant value actually
   meets it. Repeat exact applicant values when discussing a threshold.
+- A DTI above 43% is an escalation trigger in this demonstration policy; do not
+  describe it as a legal maximum or as an automatic-decline threshold.
 - If no policy clauses were retrieved, generate a justification based solely on
   the scoring factors without citing policy.
 - Be concise. Your explanation should be 2–4 sentences suitable for audit review
@@ -63,13 +65,39 @@ received the recommendation above, referencing the relevant input factors and
 any applicable policy clauses."""
 
 
+def _normalize_policy_references(
+    output: ReasoningAgentOutput, state: AgentState
+) -> ReasoningAgentOutput:
+    """Expand cited policy IDs to the exact applicable clause text."""
+    applicable = {}
+    for line in state.get("policy_context", "").splitlines():
+        clause = line.removeprefix("- ").strip()
+        match = re.match(r"(POL-\d{3}):", clause)
+        if match:
+            applicable[match.group(1)] = clause
+
+    normalized = []
+    for reference in output.policy_references:
+        match = re.search(r"POL-\d{3}", reference)
+        if not match or match.group(0) not in applicable:
+            raise ValueError("LLM cited a policy that was not supplied as applicable")
+        full_clause = applicable[match.group(0)]
+        if full_clause not in normalized:
+            normalized.append(full_clause)
+
+    return output.model_copy(update={"policy_references": normalized})
+
+
 def _validate_grounding(
     output: ReasoningAgentOutput, state: AgentState
 ) -> None:
     """Reject unsupported citations and common threshold hallucinations."""
     context = state.get("policy_context", "")
+    context_lines = {
+        line.removeprefix("- ").strip() for line in context.splitlines()
+    }
     for reference in output.policy_references:
-        if reference not in context:
+        if reference not in context_lines:
             raise ValueError("LLM cited a policy that was not supplied as applicable")
 
     explanation = output.decision_explanation.lower()
@@ -109,6 +137,7 @@ def reasoning_agent_node(state: AgentState) -> AgentState:
             model=PRIMARY_MODEL,
             temperature=0.3,
         )
+        output = _normalize_policy_references(output, state)
         _validate_grounding(output, state)
         return {
             **state,
