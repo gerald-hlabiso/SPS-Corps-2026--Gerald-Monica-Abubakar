@@ -6,7 +6,9 @@
 # The single network-level retry (max_retries=1 in config) handles transient
 # Ollama errors only.
 
-import re\n\nfrom state import AgentState
+import re
+
+from state import AgentState
 from llm_client import call_llm, PRIMARY_MODEL
 from schemas import ReasoningAgentOutput
 
@@ -27,7 +29,9 @@ CRITICAL RULES:
 - When listing policy_references, copy the EXACT full text of each policy clause
   you cited, including its ID prefix (e.g. "POL-002: Applications with a DTI...").
   Do not use numbers, abbreviations, or short labels.
-- Never claim that a threshold is met unless the displayed applicant value actually\n  meets it. Repeat exact applicant values when discussing a threshold.\n- If no policy clauses were retrieved, generate a justification based solely on
+- Never claim that a threshold is met unless the displayed applicant value actually
+  meets it. Repeat exact applicant values when discussing a threshold.
+- If no policy clauses were retrieved, generate a justification based solely on
   the scoring factors without citing policy.
 - Be concise. Your explanation should be 2–4 sentences suitable for audit review
   by a risk operations associate.
