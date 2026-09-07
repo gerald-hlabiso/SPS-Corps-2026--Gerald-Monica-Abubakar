@@ -2,7 +2,7 @@
 
 import pytest
 
-from agent.reasoning_agent import _normalize_policy_references, _validate_grounding
+from agent.reasoning_agent import (\n    _build_verified_explanation,\n    _normalize_policy_references,\n    _validate_grounding,\n)
 from orchestrator import policy_retrieval_node
 from schemas import ReasoningAgentOutput
 from state import initial_state
@@ -161,3 +161,21 @@ def test_grounding_guard_rejects_ambiguous_credit_threshold_claim():
     )
     with pytest.raises(ValueError, match="credit score"):
         _validate_grounding(output, state)
+
+
+def test_verified_renderer_keeps_score_and_dti_threshold_distinct():
+    state, clauses = _reasoning_state()
+    selected = [
+        next(c for c in clauses if c.startswith("POL-002:")),
+        next(c for c in clauses if c.startswith("POL-007:")),
+        next(c for c in clauses if c.startswith("POL-010:")),
+    ]
+
+    explanation = _build_verified_explanation(state, selected)
+
+    assert "risk score of 38.95/100" in explanation
+    assert "45.0% debt-to-income ratio" in explanation
+    assert "43% escalation trigger" in explanation
+    assert "credit score of 600 does not trigger the below-580 policy" in explanation
+    assert "1 recent delinquency does not trigger the two-or-more policy" in explanation
+    assert "risk level of 39.0/100 exceeds this threshold" not in explanation
