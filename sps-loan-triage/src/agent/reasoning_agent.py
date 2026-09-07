@@ -6,7 +6,7 @@
 # The single network-level retry (max_retries=1 in config) handles transient
 # Ollama errors only.
 
-from state import AgentState
+import re\n\nfrom state import AgentState
 from llm_client import call_llm, PRIMARY_MODEL
 from schemas import ReasoningAgentOutput
 
@@ -27,7 +27,7 @@ CRITICAL RULES:
 - When listing policy_references, copy the EXACT full text of each policy clause
   you cited, including its ID prefix (e.g. "POL-002: Applications with a DTI...").
   Do not use numbers, abbreviations, or short labels.
-- If no policy clauses were retrieved, generate a justification based solely on
+- Never claim that a threshold is met unless the displayed applicant value actually\n  meets it. Repeat exact applicant values when discussing a threshold.\n- If no policy clauses were retrieved, generate a justification based solely on
   the scoring factors without citing policy.
 - Be concise. Your explanation should be 2–4 sentences suitable for audit review
   by a risk operations associate.
@@ -59,6 +59,36 @@ received the recommendation above, referencing the relevant input factors and
 any applicable policy clauses."""
 
 
+def _validate_grounding(
+    output: ReasoningAgentOutput, state: AgentState
+) -> None:
+    """Reject unsupported citations and common threshold hallucinations."""
+    context = state.get("policy_context", "")
+    for reference in output.policy_references:
+        if reference not in context:
+            raise ValueError("LLM cited a policy that was not supplied as applicable")
+
+    explanation = output.decision_explanation.lower()
+    validated = state["validated_input"]
+    credit_score = validated.get("credit_score", 850)
+    delinquencies = validated.get("recent_delinquencies", 0)
+    dti = validated.get("debt_to_income_ratio", 0)
+
+    if credit_score >= 580 and re.search(
+        r"(credit score|score).{0,30}(below|under)\s*580|subprime", explanation
+    ):
+        raise ValueError("LLM falsely claimed the credit score is below 580")
+    if delinquencies < 2 and (
+        "two or more delinquencies" in explanation
+        or "2 or more delinquencies" in explanation
+    ):
+        raise ValueError("LLM falsely applied the two-delinquency threshold")
+    if dti <= 0.43 and re.search(
+        r"(dti|debt-to-income).{0,35}(exceed|above|over).{0,10}43", explanation
+    ):
+        raise ValueError("LLM falsely claimed DTI exceeds 43%")
+
+
 def reasoning_agent_node(state: AgentState) -> AgentState:
     """
     Mode 2 LLM reasoning node.
@@ -75,6 +105,7 @@ def reasoning_agent_node(state: AgentState) -> AgentState:
             model=PRIMARY_MODEL,
             temperature=0.3,
         )
+        _validate_grounding(output, state)
         return {
             **state,
             "decision_explanation": output.decision_explanation,
