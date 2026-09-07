@@ -33,6 +33,8 @@ CRITICAL RULES:
   meets it. Repeat exact applicant values when discussing a threshold.
 - A DTI above 43% is an escalation trigger in this demonstration policy; do not
   describe it as a legal maximum or as an automatic-decline threshold.
+- A credit score at or above 580 does not trigger POL-003. Do not describe such
+  a score as "below threshold", "subprime", or otherwise below the policy cutoff.
 - If no policy clauses were retrieved, generate a justification based solely on
   the scoring factors without citing policy.
 - Be concise. Your explanation should be 2–4 sentences suitable for audit review
@@ -107,7 +109,7 @@ def _validate_grounding(
     dti = validated.get("debt_to_income_ratio", 0)
 
     if credit_score >= 580 and re.search(
-        r"(credit score|score).{0,30}(below|under)\s*580|subprime", explanation
+        r"(credit score|score).{0,40}(below|under)\s*(the\s+)?(580|threshold|cutoff)|subprime", explanation
     ):
         raise ValueError("LLM falsely claimed the credit score is below 580")
     if delinquencies < 2 and (
@@ -135,7 +137,7 @@ def reasoning_agent_node(state: AgentState) -> AgentState:
             user_message=user_message,
             response_schema=ReasoningAgentOutput,
             model=PRIMARY_MODEL,
-            temperature=0.3,
+            temperature=0.0,
         )
         output = _normalize_policy_references(output, state)
         _validate_grounding(output, state)
