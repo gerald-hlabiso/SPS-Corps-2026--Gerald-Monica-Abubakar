@@ -10,7 +10,7 @@ from state import AgentState, initial_state
 from config_loader import get_config
 from tools.validator import validate_input
 from tools.scoring import run_scoring_engine
-from tools.policy_retrieval import retrieve_policy_clauses, format_policy_context
+from tools.policy_retrieval import (\n    retrieve_policy_clauses,\n    format_policy_context,\n    required_policy_action,\n)
 from tools.output_handler import assemble_final_output, log_pipeline_record
 from agent.reasoning_agent import reasoning_agent_node
 
@@ -73,9 +73,13 @@ def policy_retrieval_node(state: AgentState) -> AgentState:
         risk_tier=state["risk_tier"],
         borderline_flag=state["borderline_flag"],
         validated_input=state["validated_input"],
+        triage_recommendation=state["triage_recommendation"],
     )
+    policy_action = required_policy_action(policy_clauses)
+    recommendation = policy_action or state["triage_recommendation"]
     return {
         **state,
+        "triage_recommendation": recommendation,
         "policy_context": format_policy_context(policy_clauses),
         "policy_retrieval_status": retrieval_status,
     }
