@@ -23,7 +23,7 @@
       "trigger_conditions": ["high_dti"],
       "applicability": {"all": ["high_dti"]},
       "required_action": "escalate_to_underwriting",
-      "clause": "Applications with a debt-to-income ratio exceeding 43% require mandatory escalation to underwriting regardless of other scoring factors. This threshold is derived from the CFPB Qualified Mortgage standard under 12 CFR Part 1026.43, which identifies 43% DTI as the maximum ratio consistent with a presumption of repayment ability."
+      "clause": "Under this demonstration institution's policy, applications with a debt-to-income ratio exceeding 43% require mandatory escalation to underwriting regardless of other scoring factors. The 43% value is an internal escalation trigger for this prototype; it is not represented as an automatic-decline threshold or a universal legal maximum."
     },
     {
       "id": "POL-003",
