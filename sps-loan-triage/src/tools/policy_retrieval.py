@@ -1,152 +1,159 @@
 # tools/policy_retrieval.py
-# Orchestrator Tool — Policy Retrieval
-# Primary path: semantic vector search via ChromaDB + Ollama embeddings.
-# Fallback path: keyword/condition-based matching (always available).
-# The orchestrator calls this tool; the LLM agent never calls it directly.
+# Deterministic policy applicability gate with semantic ranking.
+# Similarity search may rank policies, but it may never decide applicability.
 
 import json
 import os
-from typing import List, Tuple
+import re
+from typing import List, Optional, Tuple
 
 POLICY_STORE_PATH = os.path.join(
     os.path.dirname(__file__), "..", "..", "data", "processed", "lending_policy.json"
 )
 
 
-# ---------------------------------------------------------------------------
-# Keyword / condition-based retrieval (fallback, no external dependencies)
-# ---------------------------------------------------------------------------
-
 def load_policy_store() -> List[dict]:
     """Load the local policy store from JSON. Returns [] on any failure."""
     try:
         with open(POLICY_STORE_PATH, "r") as f:
-            data = json.load(f)
-            return data.get("policies", [])
+            return json.load(f).get("policies", [])
     except (FileNotFoundError, json.JSONDecodeError):
         return []
 
 
-def _get_triggered_conditions(
+def _condition_values(
     risk_tier: str,
     borderline_flag: bool,
     validated_input: dict,
-) -> List[str]:
-    """Identify which policy trigger conditions apply to this application."""
-    conditions = []
-    if borderline_flag:
-        conditions.append("borderline")
-    if validated_input.get("debt_to_income_ratio", 0) > 0.43:
-        conditions.append("high_dti")
-    if validated_input.get("credit_score", 850) < 580:
-        conditions.append("low_credit_score")
-    if validated_input.get("recent_delinquencies", 0) >= 2:
-        conditions.append("recent_delinquencies")
-    if risk_tier == "High":
-        conditions.append("high_risk_tier")
-    if risk_tier == "Moderate":
-        conditions.append("moderate_risk_tier")
-    return conditions
+    triage_recommendation: Optional[str],
+) -> dict:
+    dti = validated_input.get("debt_to_income_ratio", 0)
+    return {
+        "always": True,
+        "borderline": borderline_flag,
+        "high_dti": dti > 0.43,
+        "dti_above_36": dti > 0.36,
+        "dti_43_to_50": 0.43 < dti <= 0.50,
+        "low_credit_score": validated_input.get("credit_score", 850) < 580,
+        "recent_delinquencies": validated_input.get("recent_delinquencies", 0) >= 2,
+        "high_risk_tier": risk_tier == "High",
+        "moderate_or_high_risk_tier": risk_tier in ("Moderate", "High"),
+        "decline_recommendation": triage_recommendation == "recommend_decline",
+    }
 
 
-def _keyword_retrieve(
+def _is_applicable(policy: dict, values: dict) -> bool:
+    """Evaluate structured policy conditions; unknown conditions fail closed."""
+    rule = policy.get("applicability")
+    if not rule:
+        # Backward-compatible safe default: every declared condition must hold.
+        conditions = policy.get("trigger_conditions", [])
+        return bool(conditions) and all(values.get(name, False) for name in conditions)
+
+    all_conditions = rule.get("all", [])
+    any_conditions = rule.get("any", [])
+    all_match = all(values.get(name, False) for name in all_conditions)
+    any_match = not any_conditions or any(values.get(name, False) for name in any_conditions)
+    return all_match and any_match
+
+
+def get_applicable_policy_records(
     risk_tier: str,
     borderline_flag: bool,
     validated_input: dict,
-) -> Tuple[List[str], str]:
-    """Keyword/condition-based policy retrieval — always available as fallback."""
-    policies = load_policy_store()
-    if not policies:
-        return [], "none_found"
+    triage_recommendation: Optional[str] = None,
+) -> List[dict]:
+    """Return only policies whose explicit, machine-readable conditions are true."""
+    values = _condition_values(
+        risk_tier, borderline_flag, validated_input, triage_recommendation
+    )
+    return [p for p in load_policy_store() if _is_applicable(p, values)]
 
-    triggered = _get_triggered_conditions(risk_tier, borderline_flag, validated_input)
-    matched = []
-    for p in policies:
-        tier_match = risk_tier in p.get("trigger_tiers", [])
-        cond_match = any(c in triggered for c in p.get("trigger_conditions", []))
-        if tier_match or cond_match:
-            matched.append(f"{p['id']}: {p['clause']}")
-
-    return (matched, "found") if matched else ([], "none_found")
-
-
-# ---------------------------------------------------------------------------
-# Semantic retrieval (primary path via vector_store.py)
-# ---------------------------------------------------------------------------
 
 def _build_semantic_query(
-    risk_tier: str,
-    borderline_flag: bool,
-    validated_input: dict,
+    risk_tier: str, borderline_flag: bool, validated_input: dict
 ) -> str:
-    """Build a natural-language query from application attributes for vector search."""
-    parts = [
+    return " ".join([
         f"Risk tier: {risk_tier}.",
         f"Credit score: {validated_input.get('credit_score')}.",
         f"DTI ratio: {validated_input.get('debt_to_income_ratio', 0) * 100:.1f}%.",
         f"Recent delinquencies: {validated_input.get('recent_delinquencies', 0)}.",
-    ]
-    if borderline_flag:
-        parts.append("Borderline case near escalation threshold.")
-    if validated_input.get("debt_to_income_ratio", 0) > 0.43:
-        parts.append("High debt-to-income ratio requiring policy review.")
-    if validated_input.get("credit_score", 850) < 580:
-        parts.append("Subprime credit score below 580.")
-    return " ".join(parts)
+        "Borderline case." if borderline_flag else "",
+    ])
 
 
-def _semantic_retrieve(
-    risk_tier: str,
-    borderline_flag: bool,
-    validated_input: dict,
-    n_results: int = 4,
-) -> Tuple[List[str], str]:
-    """
-    Semantic policy retrieval using the vector store.
-    Returns (clauses, status) or ([], "none_found") if unavailable.
-    """
+def _semantic_policy_ids(
+    risk_tier: str, borderline_flag: bool, validated_input: dict
+) -> List[str]:
+    """Use semantic search for ordering only, never for applicability."""
     try:
         from tools.vector_store import retrieve_similar_clauses, is_vector_store_available
         if not is_vector_store_available():
-            return [], "none_found"
-        query = _build_semantic_query(risk_tier, borderline_flag, validated_input)
-        clauses = retrieve_similar_clauses(query, n_results=n_results)
-        return (clauses, "found") if clauses else ([], "none_found")
+            return []
+        clauses = retrieve_similar_clauses(
+            _build_semantic_query(risk_tier, borderline_flag, validated_input),
+            n_results=10,
+        )
+        ids = []
+        for clause in clauses:
+            match = re.search(r"\bPOL-\d{3}\b", clause)
+            if match and match.group(0) not in ids:
+                ids.append(match.group(0))
+        return ids
     except Exception:
-        return [], "none_found"
+        return []
 
-
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
 
 def retrieve_policy_clauses(
     risk_tier: str,
     borderline_flag: bool,
     validated_input: dict,
+    triage_recommendation: Optional[str] = None,
 ) -> Tuple[List[str], str]:
     """
-    Retrieve relevant policy clauses for a borderline application.
+    Retrieve applicable policies.
 
-    Primary path: semantic vector search (ChromaDB + Ollama embeddings).
-    Fallback:     keyword/condition-based matching from lending_policy.json.
-
-    Returns:
-        (policy_clauses: list[str], retrieval_status: "found" | "none_found")
+    Deterministic rules establish applicability. Semantic search only orders the
+    already-applicable set, preventing similar-but-false policies from reaching
+    the reasoning model.
     """
-    clauses, status = _semantic_retrieve(risk_tier, borderline_flag, validated_input)
-    if status == "found":
-        return clauses, status
+    applicable = get_applicable_policy_records(
+        risk_tier,
+        borderline_flag,
+        validated_input,
+        triage_recommendation,
+    )
+    if not applicable:
+        return [], "none_found"
 
-    # Keyword fallback
-    return _keyword_retrieve(risk_tier, borderline_flag, validated_input)
+    semantic_order = _semantic_policy_ids(
+        risk_tier, borderline_flag, validated_input
+    )
+    rank = {policy_id: index for index, policy_id in enumerate(semantic_order)}
+    applicable.sort(key=lambda p: (rank.get(p["id"], len(rank)), p["id"]))
+    clauses = [f"{p['id']}: {p['clause']}" for p in applicable]
+    return clauses, "found"
+
+
+def required_policy_action(policy_clauses: List[str]) -> Optional[str]:
+    """Resolve mandatory policy action from the applicable clause IDs."""
+    policy_by_id = {p["id"]: p for p in load_policy_store()}
+    actions = []
+    for clause in policy_clauses:
+        match = re.match(r"(POL-\d{3}):", clause)
+        if match:
+            action = policy_by_id.get(match.group(1), {}).get("required_action")
+            if action:
+                actions.append(action)
+    if "escalate_to_underwriting" in actions:
+        return "escalate_to_underwriting"
+    return actions[0] if actions else None
 
 
 def format_policy_context(policy_clauses: List[str]) -> str:
-    """Format retrieved policy clauses into a single string for LLM prompt injection."""
     if not policy_clauses:
         return ""
-    lines = ["Relevant Lending Policy Clauses:"]
-    for clause in policy_clauses:
-        lines.append(f"- {clause}")
-    return "\n".join(lines)
+    return "\n".join(
+        ["Applicable Lending Policy Clauses:"]
+        + [f"- {clause}" for clause in policy_clauses]
+    )
